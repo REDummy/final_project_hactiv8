@@ -1,0 +1,11 @@
+Flask==3.0.3
+pandas==2.2.3
+pyarrow==16.1.0
+langchain==0.3.25
+langchain-openai==0.3.18
+langchain-community==0.3.24
+faiss-cpu==1.8.0.post1
+python-dotenv==1.0.1
+pydantic-settings==2.6.1
+prometheus-client==0.21.0
+langchain-google-vertexai==2.0.17

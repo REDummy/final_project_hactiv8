@@ -1,0 +1,11 @@
+# Secrets and local runtime
+.env
+.venv/
+__pycache__/
+*.pyc
+
+# Streamlit artifacts
+.streamlit/
+
+# Local logs and temp outputs
+*.log

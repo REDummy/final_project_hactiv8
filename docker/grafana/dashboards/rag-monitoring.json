@@ -1,0 +1,59 @@
+{
+  "id": null,
+  "uid": "rag-monitoring",
+  "title": "Mitsubishi Sales Training RAG Monitoring",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Queries",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "rag_requests_total", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Prompt Tokens",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "rag_prompt_tokens_total", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Completion Tokens",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "rag_completion_tokens_total", "refId": "A" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Last Response Time (ms)",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "rag_last_response_time_ms", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Rate (per second)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "rate(rag_requests_total[1m])", "refId": "A" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 Latency (seconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(rag_request_latency_seconds_bucket[5m])) by (le))", "refId": "A" }
+      ]
+    }
+  ]
+}

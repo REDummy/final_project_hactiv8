@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mitsubishi Sales Training Knowledge Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <h1>Mitsubishi Sales Training Knowledge Assistant</h1>
+      <p>RAG demo for SOP, coaching playbooks, and trainee scoring</p>
+      <p class="meta">Environment: {{ app_env }} | Version: {{ app_version }} | <span id="deviceBadge">Device: Web</span></p>
+    </header>
+
+    <section class="view-switch" role="group" aria-label="View mode switch">
+      <button id="publicViewBtn" class="view-btn active" type="button">Public Demo</button>
+      <button id="developerViewBtn" class="view-btn" type="button">Developer Mode</button>
+      <label class="theme-label" for="themeMode">Theme</label>
+      <select id="themeMode" class="theme-select">
+        <option value="auto" selected>Auto</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </section>
+
+    <section class="content-layout">
+      <aside id="sidebar" class="sidebar">
+        <section class="sidebar-nav">
+          <h3>Navigation</h3>
+          <div class="sidebar-tabs" role="tablist" aria-label="Sidebar navigation">
+            <button class="tab-trigger side-tab active" data-tab="assistant" type="button">Knowledge Assistant</button>
+            <button class="tab-trigger side-tab" data-tab="trainee" type="button">Trainee QnA Scoring</button>
+            <button class="tab-trigger side-tab" data-tab="mock" type="button">Mock Test</button>
+          </div>
+        </section>
+
+        <section id="developerPanel">
+          <section class="toolbar">
+            <label for="topK">Retrieval Top-K</label>
+            <input id="topK" type="number" min="2" max="8" value="{{ default_top_k }}" />
+            <span class="hint">Use higher Top-K for more complex questions.</span>
+          </section>
+
+          <section class="kpi-grid">
+            <article class="kpi"><div>Train Rows</div><strong>{{ train_rows }}</strong></article>
+            <article class="kpi"><div>Test Rows</div><strong>{{ test_rows }}</strong></article>
+            <article class="kpi"><div>Active Top-K</div><strong id="activeTopK">{{ default_top_k }}</strong></article>
+          </section>
+        </section>
+      </aside>
+
+      <section class="content-main">
+        <section id="assistant" class="tab-panel active">
+          <h2>Ask the Knowledge Base</h2>
+          <div class="button-row">
+            <button class="btn" id="randomPromptBtn">Random Prompt</button>
+          </div>
+          <label for="assistantQuery">Question</label>
+          <textarea id="assistantQuery" rows="5"></textarea>
+          <button id="generateAnswerBtn" class="btn primary">Generate Answer</button>
+          <div id="assistantResult" class="result"></div>
+        </section>
+
+        <section id="trainee" class="tab-panel">
+          <h2>Trainee Practice and Scoring</h2>
+          <div class="grid-2">
+            <div>
+              <label for="practiceTopic">Practice topic</label>
+              <input id="practiceTopic" type="text" value="Complaint escalation SOP for delivery delay" />
+            </div>
+            <div>
+              <label for="practiceDifficulty">Difficulty</label>
+              <select id="practiceDifficulty">
+                <option value="easy">easy</option>
+                <option value="medium" selected>medium</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+          </div>
+          <button id="generatePracticeBtn" class="btn">Generate Practice Question</button>
+
+          <label for="practiceQuestion">Question for trainee</label>
+          <textarea id="practiceQuestion" rows="3"></textarea>
+          <p id="expectedFocus" class="hint"></p>
+
+          <label for="traineeAnswer">Trainee answer</label>
+          <textarea id="traineeAnswer" rows="6"></textarea>
+          <button id="evaluateAnswerBtn" class="btn primary">Evaluate Answer</button>
+          <div id="evaluationResult" class="result"></div>
+        </section>
+
+        <section id="mock" class="tab-panel">
+          <h2>Mock Test</h2>
+          <p class="hint">One question at a time with timer. Evaluation is generated at the end.</p>
+          <div class="grid-3">
+            <div>
+              <label for="mockTopic">Select test topic</label>
+              <select id="mockTopic">
+                <option>Lead Qualification SOP</option>
+                <option>Discount and Negotiation Handling</option>
+                <option>SPK Submission and Order Accuracy</option>
+                <option selected>Delivery Delay Complaint Escalation</option>
+                <option>Aftersales Handover and Retention</option>
+              </select>
+            </div>
+            <div>
+              <label for="mockDifficulty">Difficulty</label>
+              <select id="mockDifficulty">
+                <option value="easy">easy</option>
+                <option value="medium" selected>medium</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+            <div>
+              <label for="mockMinutes">Timer (minutes)</label>
+              <input id="mockMinutes" type="number" min="3" max="60" value="{{ default_mock_minutes }}" />
+            </div>
+          </div>
+          <button id="generateMockBtn" class="btn">Generate 5 Random Questions</button>
+
+          <div id="mockTestArea" class="mock hidden">
+            <div class="mock-head">
+              <strong id="mockProgress">Question 1 of 5</strong>
+              <span id="mockTimer">Time remaining: 00:00</span>
+            </div>
+            <p id="mockQuestionText"></p>
+            <label for="mockAnswer">Your answer</label>
+            <textarea id="mockAnswer" rows="6"></textarea>
+            <div class="button-row">
+              <button id="mockPrevBtn" class="btn">Previous</button>
+              <button id="mockNextBtn" class="btn">Next</button>
+              <button id="mockSubmitBtn" class="btn primary">Submit Test</button>
+            </div>
+          </div>
+          <div id="mockResult" class="result"></div>
+        </section>
+
+        <section id="mockResultModal" class="modal hidden" aria-hidden="true">
+          <div class="modal-backdrop" id="mockModalBackdrop"></div>
+          <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="mockModalTitle">
+            <div class="modal-header">
+              <h3 id="mockModalTitle">Mock Test Result</h3>
+              <button id="mockModalCloseBtn" class="btn" type="button">Close</button>
+            </div>
+            <div id="mockModalBody" class="modal-body"></div>
+          </div>
+        </section>
+
+        <section id="monitoringNote" class="monitoring-note">
+          <h3>Monitoring</h3>
+          <p>Prometheus metrics endpoint is exposed on <code>:8000/metrics</code>. Use Grafana to visualize dashboards.</p>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+
+

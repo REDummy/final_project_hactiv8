@@ -1,0 +1,10 @@
+{
+  "total_rows": 175,
+  "train_rows": 140,
+  "test_rows": 35,
+  "sources": {
+    "glossary": 74,
+    "faq": 74,
+    "guides": 27
+  }
+}
