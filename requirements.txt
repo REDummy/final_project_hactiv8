@@ -8,3 +8,6 @@ faiss-cpu==1.8.0.post1
 python-dotenv==1.0.1
 pydantic-settings==2.6.1
 prometheus-client==0.21.0
+
+langchain-google-genai==2.1.5
+

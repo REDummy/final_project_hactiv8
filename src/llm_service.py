@@ -5,6 +5,7 @@ import logging
 import re
 from typing import Any
 
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 
@@ -48,37 +49,71 @@ DEFAULT_BLOCKED_WORDS = [
 class LlmService:
     def __init__(
         self,
-        api_key: str,
+        google_api_key: str,
+        openai_api_key: str,
         model: str,
         timeout_seconds: int,
         max_retries: int,
         max_output_tokens: int,
         fallback_model: str = "",
+        backup_model: str = "",
         enable_input_guard: bool = True,
         blocked_words: list[str] | None = None,
         injection_patterns: list[str] | None = None,
         max_input_chars: int = 3000,
     ):
         self.model_chain: list[str] = []
+        self.providers: list[str] = []
+        self.clients: list[Any] = []
 
-        primary_model = (model or "").strip()
-        fallback = (fallback_model or "").strip()
-        if primary_model:
-            self.model_chain.append(primary_model)
-        if fallback and fallback != primary_model:
-            self.model_chain.append(fallback)
-
-        self.clients = [
-            ChatOpenAI(
-                api_key=api_key,
-                model=model_name,
-                temperature=0,
-                timeout=timeout_seconds,
-                max_retries=max_retries,
-                max_tokens=max_output_tokens,
-            )
-            for model_name in self.model_chain
+        chain = [
+            ("google", (model or "").strip()),
+            ("google", (fallback_model or "").strip()),
+            ("openai", (backup_model or "").strip()),
         ]
+
+        seen: set[tuple[str, str]] = set()
+        for provider, model_name in chain:
+            if not model_name:
+                continue
+            key = (provider, model_name)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            client = None
+            if provider == "google" and google_api_key.strip():
+                client = ChatGoogleGenerativeAI(
+                    google_api_key=google_api_key,
+                    model=model_name,
+                    temperature=0,
+                    timeout=timeout_seconds,
+                    max_retries=max_retries,
+                    max_output_tokens=max_output_tokens,
+                )
+            if provider == "openai" and openai_api_key.strip():
+                client = ChatOpenAI(
+                    api_key=openai_api_key,
+                    model=model_name,
+                    temperature=0,
+                    timeout=timeout_seconds,
+                    max_retries=max_retries,
+                    max_tokens=max_output_tokens,
+                )
+
+            if client is None:
+                logger.warning(
+                    "Skipped LLM model due to missing provider API key",
+                    extra={"provider": provider, "model": model_name},
+                )
+                continue
+
+            self.providers.append(provider)
+            self.model_chain.append(model_name)
+            self.clients.append(client)
+
+        if not self.clients:
+            raise RuntimeError("No LLM client configured. Provide GOOGLE_API_KEY and/or OPENAI_API_KEY.")
 
         self.enable_input_guard = enable_input_guard
         self.max_input_chars = max_input_chars
@@ -89,6 +124,7 @@ class LlmService:
         logger.info(
             "LLM service initialized",
             extra={
+                "providers": self.providers,
                 "model_chain": self.model_chain,
                 "enable_input_guard": enable_input_guard,
                 "blocked_words_count": len(self.blocked_words),
@@ -98,11 +134,58 @@ class LlmService:
 
     @staticmethod
     def _token_usage(response: Any) -> dict:
-        usage = getattr(response, "response_metadata", {}).get("token_usage", {})
+        metadata = getattr(response, "response_metadata", {}) or {}
+        usage = (
+            metadata.get("token_usage")
+            or metadata.get("usage_metadata")
+            or getattr(response, "usage_metadata", {})
+            or {}
+        )
+
+        def _pick(*keys: str) -> int:
+            for key in keys:
+                value = usage.get(key, 0)
+                if value is not None and str(value).strip() != "":
+                    try:
+                        return int(value)
+                    except (TypeError, ValueError):
+                        continue
+            return 0
+
+        prompt_tokens = _pick("prompt_tokens", "input_tokens", "prompt_token_count", "promptTokenCount", "inputTokenCount")
+        completion_tokens = _pick(
+            "completion_tokens",
+            "output_tokens",
+            "candidates_token_count",
+            "completionTokenCount",
+            "candidatesTokenCount",
+            "outputTokenCount",
+        )
+        total_tokens = _pick("total_tokens", "total_token_count", "totalTokenCount")
+        if total_tokens <= 0:
+            total_tokens = max(prompt_tokens, 0) + max(completion_tokens, 0)
+
+        # Gemini usage metadata may provide only total tokens. Infer completion tokens from content when needed.
+        if total_tokens > 0:
+            if prompt_tokens <= 0 and completion_tokens > 0 and completion_tokens < total_tokens:
+                prompt_tokens = total_tokens - completion_tokens
+            elif completion_tokens <= 0 and prompt_tokens > 0 and prompt_tokens < total_tokens:
+                completion_tokens = total_tokens - prompt_tokens
+            elif prompt_tokens <= 0 and completion_tokens <= 0:
+                content_text = LlmService._normalize_content_text(getattr(response, "content", ""))
+                estimated_completion = 0
+                if content_text:
+                    estimated_completion = max(1, min(total_tokens, (len(content_text) + 3) // 4))
+                completion_tokens = estimated_completion
+                prompt_tokens = max(total_tokens - completion_tokens, 0)
+
+        if prompt_tokens == 0 and completion_tokens == 0 and total_tokens == 0 and usage:
+            logger.debug("Token usage metadata could not be mapped", extra={"usage_metadata": usage})
+
         return {
-            "prompt_tokens": usage.get("prompt_tokens", 0),
-            "completion_tokens": usage.get("completion_tokens", 0),
-            "total_tokens": usage.get("total_tokens", 0),
+            "prompt_tokens": max(prompt_tokens, 0),
+            "completion_tokens": max(completion_tokens, 0),
+            "total_tokens": max(total_tokens, 0),
         }
 
     @staticmethod
@@ -110,8 +193,33 @@ class LlmService:
         return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
     @staticmethod
-    def _parse_json_payload(content: str) -> dict | None:
-        text = content.strip()
+    def _normalize_content_text(content: Any) -> str:
+        if isinstance(content, str):
+            return content.strip()
+
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict):
+                    text = str(item.get("text", "")).strip()
+                    if text:
+                        parts.append(text)
+                else:
+                    text = str(item).strip()
+                    if text:
+                        parts.append(text)
+            return "\n".join(parts).strip()
+
+        if isinstance(content, dict):
+            text = str(content.get("text", "")).strip()
+            if text:
+                return text
+
+        return str(content).strip()
+
+    @staticmethod
+    def _parse_json_payload(content: Any) -> dict | None:
+        text = LlmService._normalize_content_text(content)
         try:
             loaded = json.loads(text)
             return loaded if isinstance(loaded, dict) else None
@@ -165,6 +273,7 @@ class LlmService:
 
         for idx, client in enumerate(self.clients):
             model_name = self.model_chain[idx]
+            provider = self.providers[idx]
             try:
                 if idx > 0:
                     logger.warning(
@@ -172,6 +281,7 @@ class LlmService:
                         extra={
                             "failed_model": self.model_chain[idx - 1],
                             "fallback_model": model_name,
+                            "fallback_provider": provider,
                         },
                     )
                 return client.invoke(prompt)
@@ -180,6 +290,7 @@ class LlmService:
                 logger.warning(
                     "Model invocation failed",
                     extra={
+                        "provider": provider,
                         "model": model_name,
                         "attempt_index": idx + 1,
                         "error": str(err),
@@ -206,7 +317,8 @@ class LlmService:
         response = self._invoke(prompt)
         token_usage = self._token_usage(response)
         logger.debug("Assistant answer generated", extra={"contexts": len(contexts), "total_tokens": token_usage.get("total_tokens", 0)})
-        return {"answer": response.content, "token_usage": token_usage, "blocked": False}
+        answer_text = self._normalize_content_text(response.content)
+        return {"answer": answer_text, "token_usage": token_usage, "blocked": False}
 
     def generate_practice_question(self, topic: str, contexts: list[str], difficulty: str) -> dict:
         reason = self._validate_input(topic, "Practice topic")
@@ -233,7 +345,7 @@ class LlmService:
         )
 
         response = self._invoke(prompt)
-        content = str(response.content).strip()
+        content = self._normalize_content_text(response.content)
         parsed = {"question": "", "expected_focus": [], "difficulty": difficulty}
 
         loaded = self._parse_json_payload(content)
@@ -283,7 +395,7 @@ class LlmService:
         )
 
         response = self._invoke(prompt)
-        content = str(response.content).strip()
+        content = self._normalize_content_text(response.content)
 
         questions: list[str] = []
         loaded = self._parse_json_payload(content)
@@ -358,7 +470,7 @@ class LlmService:
         )
 
         response = self._invoke(prompt)
-        content = str(response.content).strip()
+        content = self._normalize_content_text(response.content)
 
         default_result = {
             "overall_score": 0,
@@ -393,3 +505,10 @@ class LlmService:
 
         token_usage = self._token_usage(response)
         return {"evaluation": parsed, "token_usage": token_usage, "blocked": False}
+
+
+
+
+
+
+

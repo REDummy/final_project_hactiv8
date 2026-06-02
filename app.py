@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 if settings.start_prometheus_http_server:
     init_monitoring(settings.prometheus_port)
 
-if not settings.openai_api_key:
-    raise RuntimeError("OPENAI_API_KEY is required")
+if not settings.google_api_key and not settings.openai_api_key:
+    raise RuntimeError("GOOGLE_API_KEY or OPENAI_API_KEY is required")
 
 train_df, test_df, _text_col, _label_col, vectorstore, llm = load_app_resources(settings)
 
@@ -406,7 +406,7 @@ def mock_evaluate():
 def _user_facing_api_error(err: Exception) -> tuple[dict, int]:
     message = str(err).lower()
     if "api key" in message or "authentication" in message:
-        return {"error": "OpenAI authentication failed. Check OPENAI_API_KEY."}, 502
+        return {"error": "Model provider authentication failed. Check GOOGLE_API_KEY and OPENAI_API_KEY."}, 502
     return {"error": "Internal server error."}, 500
 
 
@@ -425,4 +425,7 @@ def handle_exception(err: Exception):
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8501"))
     app.run(host="0.0.0.0", port=port, debug=False)
+
+
+
 

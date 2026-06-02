@@ -1,11 +1,18 @@
-# Secrets and local runtime
+﻿# Secrets and local runtime
 .env
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Streamlit artifacts
 .streamlit/
 
 # Local logs and temp outputs
 *.log
+
+# Generated evaluation outputs
+evaluation/reports/*.json
+
+# Local pytest temp dirs
+pytest-cache-files-*

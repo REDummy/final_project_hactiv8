@@ -54,13 +54,21 @@ gcloud run deploy mitsubishi-rag \
   --region us-central1 \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars APP_ENV=prod,APP_VERSION=1.0.0,LOG_LEVEL=INFO,START_PROMETHEUS_HTTP_SERVER=false,LLM_MODEL=gpt-4o-mini,OPENAI_EMBEDDING_MODEL=text-embedding-3-small,OPENAI_INPUT_PRICE_PER_1M=0.15,OPENAI_OUTPUT_PRICE_PER_1M=0.60,OPENAI_API_KEY=<your-openai-api-key>
+  --set-env-vars APP_ENV=prod,APP_VERSION=1.0.0,LOG_LEVEL=INFO,START_PROMETHEUS_HTTP_SERVER=false,LLM_MODEL=gemini-3.1-flash-lite,LLM_FALLBACK_MODEL=gemini-2.5-flash-lite,LLM_BACKUP_MODEL=gpt-4.1-mini,GOOGLE_EMBEDDING_MODEL=models/text-embedding-004,OPENAI_EMBEDDING_MODEL=text-embedding-3-small,OPENAI_INPUT_PRICE_PER_1M=0.15,OPENAI_OUTPUT_PRICE_PER_1M=0.60,GOOGLE_API_KEY=<your-google-api-key>,OPENAI_API_KEY=<your-openai-api-key>
 ```
 
 Get URL:
 
 ```bash
 gcloud run services describe mitsubishi-rag --region us-central1 --format="value(status.url)"
+```
+
+Update env vars on an existing Cloud Run service without rebuilding image:
+
+```bash
+gcloud run services update mitsubishi-rag \
+  --region us-central1 \
+  --update-env-vars LLM_MODEL=gemini-3.1-flash-lite,LLM_FALLBACK_MODEL=gemini-2.5-flash-lite,LLM_BACKUP_MODEL=gpt-4.1-mini,GOOGLE_EMBEDDING_MODEL=models/text-embedding-004,OPENAI_EMBEDDING_MODEL=text-embedding-3-small,GOOGLE_API_KEY=<your-google-api-key>,OPENAI_API_KEY=<your-openai-api-key>
 ```
 
 Validate:
@@ -137,9 +145,36 @@ histogram_quantile(0.95, sum(rate(rag_request_latency_seconds_bucket[5m])) by (l
 
 - `docker-compose-plugin` not found on Debian:
   - Use `docker-compose` package and `docker-compose ...` commands.
-- OpenAI auth/model errors on Cloud Run:
-  - Check `OPENAI_API_KEY`, `LLM_MODEL`, `OPENAI_EMBEDDING_MODEL`.
+- Provider auth/model errors on Cloud Run:
+  - Check `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `LLM_MODEL`, `LLM_FALLBACK_MODEL`, `LLM_BACKUP_MODEL`, `GOOGLE_EMBEDDING_MODEL`, and `OPENAI_EMBEDDING_MODEL`.
 - No metrics in Grafana:
   - Check Alloy logs and `.env` credentials.
   - Confirm Cloud Run `/metrics` is reachable.
   - Confirm Alloy target hostname has no scheme/path.
+## 8) Run Evaluation and Stress Test on Cloud Run URL
+
+Assume URL:
+- `https://mitsubishi-rag-697353833582.us-central1.run.app/`
+
+Run expanded evaluation set:
+```bash
+python evaluation/run_eval.py --base-url https://mitsubishi-rag-697353833582.us-central1.run.app/
+```
+
+Run stress evaluation set:
+```bash
+python evaluation/run_eval.py --base-url https://mitsubishi-rag-697353833582.us-central1.run.app/ --cases evaluation/eval_cases_stress.jsonl --top-k 8 --min-pass-rate 0.67
+```
+
+Run headless stress load test:
+```bash
+locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiStressUser --headless -u 20 -r 2 -t 3m --only-summary
+```
+
+PowerShell fallback if proxy variables interfere:
+```powershell
+$env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; python evaluation/run_eval.py --base-url https://mitsubishi-rag-697353833582.us-central1.run.app/
+$env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiStressUser --headless -u 20 -r 2 -t 3m --only-summary
+```
+
+

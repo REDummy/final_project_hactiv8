@@ -7,14 +7,22 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
 
-    llm_model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
-    llm_fallback_model: str = Field(default="", alias="LLM_FALLBACK_MODEL")
+    llm_provider_mode: str = Field(default="hybrid", alias="LLM_PROVIDER_MODE")
+    embedding_provider_mode: str = Field(default="hybrid", alias="EMBEDDING_PROVIDER_MODE")
+
+    llm_model: str = Field(default="gemini-3.1-flash-lite", alias="LLM_MODEL")
+    llm_fallback_model: str = Field(default="gemini-2.5-flash-lite", alias="LLM_FALLBACK_MODEL")
+    llm_backup_model: str = Field(default="gpt-4.1-mini", alias="LLM_BACKUP_MODEL")
+    openai_llm_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_LLM_MODEL")
+    openai_llm_fallback_model: str = Field(default="gpt-4o-mini", alias="OPENAI_LLM_FALLBACK_MODEL")
     llm_timeout_seconds: int = Field(default=30, alias="LLM_TIMEOUT_SECONDS", ge=5, le=180)
     llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES", ge=0, le=6)
     llm_max_output_tokens: int = Field(default=700, alias="LLM_MAX_OUTPUT_TOKENS", ge=64, le=4000)
 
+    google_embedding_model: str = Field(default="models/text-embedding-004", alias="GOOGLE_EMBEDDING_MODEL")
     openai_embedding_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL")
     openai_input_price_per_1m: float = Field(default=0.15, alias="OPENAI_INPUT_PRICE_PER_1M", ge=0)
     openai_output_price_per_1m: float = Field(default=0.60, alias="OPENAI_OUTPUT_PRICE_PER_1M", ge=0)
@@ -54,6 +62,14 @@ class Settings(BaseSettings):
     @property
     def injection_patterns(self) -> list[str]:
         return [p.strip() for p in self.injection_patterns_csv.split(",") if p.strip()]
+
+    @property
+    def use_openai_llm_only(self) -> bool:
+        return (self.llm_provider_mode or "hybrid").strip().lower() == "openai"
+
+    @property
+    def use_openai_embeddings_only(self) -> bool:
+        return (self.embedding_provider_mode or "hybrid").strip().lower() == "openai"
 
 
 @lru_cache(maxsize=1)
