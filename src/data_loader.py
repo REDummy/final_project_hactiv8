@@ -1,6 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 from typing import Tuple
 
 import pandas as pd
@@ -13,6 +15,32 @@ def _safe_text(value) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _load_jsonl(path: str) -> pd.DataFrame:
+    records: list[dict] = []
+    file_path = Path(path)
+
+    try:
+        with file_path.open("r", encoding="utf-8-sig") as handle:
+            for line_no, line in enumerate(handle, start=1):
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except json.JSONDecodeError as err:
+                    raise ValueError(f"Invalid JSONL in '{path}' at line {line_no}: {err.msg}") from err
+                if not isinstance(obj, dict):
+                    raise ValueError(f"Invalid JSONL in '{path}' at line {line_no}: expected JSON object")
+                records.append(obj)
+    except FileNotFoundError as err:
+        raise FileNotFoundError(f"Data file not found: {path}") from err
+
+    if not records:
+        raise ValueError(f"Data file has no valid JSON records: {path}")
+
+    return pd.DataFrame(records)
 
 
 def _build_glossary_rows(df: pd.DataFrame) -> list[dict]:
@@ -69,9 +97,9 @@ def load_data(
             "faq_path": faq_path,
         },
     )
-    glossary_df = pd.read_json(glossary_path, lines=True)
-    guides_df = pd.read_json(guides_path, lines=True)
-    faq_df = pd.read_json(faq_path, lines=True)
+    glossary_df = _load_jsonl(glossary_path)
+    guides_df = _load_jsonl(guides_path)
+    faq_df = _load_jsonl(faq_path)
 
     corpus_rows = []
     corpus_rows.extend(_build_glossary_rows(glossary_df))
@@ -94,4 +122,3 @@ def load_data(
     )
 
     return train_df, test_df, "text", "label"
-

@@ -7,11 +7,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 
-try:
-    from langchain_google_vertexai import VertexAIEmbeddings
-except ImportError:  # pragma: no cover - optional dependency
-    VertexAIEmbeddings = None
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,35 +17,19 @@ class RagIndexer:
         api_key: str,
         chunk_size: int,
         chunk_overlap: int,
-        embedding_provider: str = "openai",
-        vertex_project_id: str = "",
-        vertex_location: str = "us-central1",
-        vertex_embedding_model: str = "text-embedding-005",
+        openai_embedding_model: str = "text-embedding-3-small",
     ):
-        provider = (embedding_provider or "openai").strip().lower()
-        if provider == "vertex":
-            if VertexAIEmbeddings is None:
-                raise RuntimeError(
-                    "langchain-google-vertexai is required for EMBEDDING_PROVIDER=vertex"
-                )
-            self.embeddings = VertexAIEmbeddings(
-                model=vertex_embedding_model,
-                project=vertex_project_id or None,
-                location=vertex_location,
-            )
-        else:
-            self.embeddings = OpenAIEmbeddings(api_key=api_key)
+        if not api_key.strip():
+            raise RuntimeError("OPENAI_API_KEY is required for OpenAI embeddings")
 
+        self.embeddings = OpenAIEmbeddings(api_key=api_key, model=openai_embedding_model)
         self.chunker = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
         )
         logger.info(
             "Embedding backend initialized",
-            extra={
-                "embedding_provider": provider,
-                "vertex_embedding_model": vertex_embedding_model if provider == "vertex" else "",
-            },
+            extra={"embedding_provider": "openai", "openai_embedding_model": openai_embedding_model},
         )
 
     def build_vectorstore(self, train_df, text_col: str, label_col: str | None):

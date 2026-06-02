@@ -1,8 +1,8 @@
 # Final Project - Mitsubishi Sales Training RAG Assistant
 
-Mitsubishi sales-training assistant with a web frontend (HTML/CSS/JS) and Flask backend, now Google-first:
-- LLM: Vertex AI Claude Haiku
-- Embeddings: Vertex AI text embeddings
+Mitsubishi sales-training assistant with a web frontend (HTML/CSS/JS) and Flask backend.
+- LLM: OpenAI chat models (with optional OpenAI fallback model)
+- Embeddings: OpenAI embeddings
 - Observability: Prometheus metrics + Grafana Cloud via Alloy
 
 ## Run Locally
@@ -11,14 +11,15 @@ Mitsubishi sales-training assistant with a web frontend (HTML/CSS/JS) and Flask 
    pip install -r requirements.txt
    ```
 2. Create `.env` from `.env.example`
-3. Fill Vertex settings (`VERTEX_PROJECT_ID`, `VERTEX_LOCATION`) and provider flags
+3. Set `OPENAI_API_KEY`
 4. Run app:
    ```bash
    python app.py
    ```
 5. Open:
    - App: `http://localhost:8501`
-   - Metrics endpoint: `http://localhost:8501/metrics`
+   - Metrics endpoint (app route): `http://localhost:8501/metrics`
+   - Metrics endpoint (Prometheus exporter, when `START_PROMETHEUS_HTTP_SERVER=true`): `http://localhost:8000/metrics`
 
 ## Docker Run
 ```bash
@@ -48,23 +49,18 @@ docker compose up --build
 Use:
 - `DEPLOY_GCP_GRAFANA_CLOUD.md`
 
-## Environment Variables (Naming Convention)
+## Environment Variables
 
-Provider and model:
-- `LLM_PROVIDER` (`vertex_claude` or `openai`)
-- `EMBEDDING_PROVIDER` (`vertex` or `openai`)
+OpenAI:
+- `OPENAI_API_KEY`
 - `LLM_MODEL`
+- `LLM_FALLBACK_MODEL`
+- `OPENAI_EMBEDDING_MODEL`
+- OPENAI_INPUT_PRICE_PER_1M (for monitoring cost estimation)
+- OPENAI_OUTPUT_PRICE_PER_1M (for monitoring cost estimation)
 - `LLM_TIMEOUT_SECONDS`
 - `LLM_MAX_RETRIES`
 - `LLM_MAX_OUTPUT_TOKENS`
-
-Vertex:
-- `VERTEX_PROJECT_ID`
-- `VERTEX_LOCATION`
-- `VERTEX_EMBEDDING_MODEL`
-
-Optional OpenAI (only if provider uses openai):
-- `OPENAI_API_KEY`
 
 App/runtime:
 - `APP_ENV`
@@ -82,3 +78,7 @@ Safety:
 - `MAX_INPUT_CHARS`
 - `BLOCKED_WORDS`
 - `INJECTION_PATTERNS`
+
+## Developer Monitoring
+- In Developer Mode, the Monitoring section now shows recent queries, input/output tokens, and estimated OpenAI cost per request.
+- Cost estimation uses OPENAI_INPUT_PRICE_PER_1M and OPENAI_OUTPUT_PRICE_PER_1M.

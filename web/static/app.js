@@ -1,4 +1,4 @@
-﻿const quickPrompts = [
+const quickPrompts = [
   "Build a follow-up script for a customer who asked for a discount and went silent for 3 days.",
   "What SOP checks should be completed before SPK submission to avoid delivery disputes?",
   "Create a weekly coaching plan for a consultant with low conversion.",
@@ -17,7 +17,8 @@ const state = {
     deadline: 0,
     timerId: null,
     submitted: false,
-  }
+  },
+  monitoringPoller: null
 };
 
 const el = (id) => document.getElementById(id);
@@ -140,12 +141,14 @@ function applyViewMode(mode) {
     publicBtn.classList.remove("active");
     devBtn.classList.add("active");
     topKInput.disabled = false;
+    startMonitoringPolling();
   } else {
     devPanel.classList.add("hidden");
     if (monitoringNote) monitoringNote.classList.add("hidden");
     publicBtn.classList.add("active");
     devBtn.classList.remove("active");
     topKInput.disabled = true;
+    stopMonitoringPolling();
   }
 
   el("activeTopK").textContent = String(currentTopK());
@@ -405,6 +408,69 @@ function initMock() {
   el("mockSubmitBtn").addEventListener("click", () => submitMockTest(false));
 }
 
+
+function formatUsd(value) {
+  return `$${Number(value || 0).toFixed(6)}`;
+}
+
+function truncateText(text, max = 120) {
+  const value = String(text || "").trim();
+  if (!value) return "-";
+  return value.length > max ? `${escapeHtml(value.slice(0, max))}...` : escapeHtml(value);
+}
+
+function renderMonitoringView(data) {
+  const summary = data.summary || {};
+  const pricing = data.pricing || {};
+  const events = Array.isArray(data.events) ? data.events : [];
+
+  setHtml(
+    "monitoringSummary",
+    `<div class="monitoring-chip"><div>Requests (shown)</div><strong>${summary.request_count || 0}</strong></div>
+     <div class="monitoring-chip"><div>Input Tokens</div><strong>${summary.prompt_tokens || 0}</strong></div>
+     <div class="monitoring-chip"><div>Output Tokens</div><strong>${summary.completion_tokens || 0}</strong></div>
+     <div class="monitoring-chip"><div>Estimated Cost</div><strong>${formatUsd(summary.estimated_cost_usd || 0)}</strong></div>`
+  );
+
+  const rows = events.length
+    ? events.map((event) => `<tr>
+        <td>${escapeHtml(String(event.ts || "-"))}</td>
+        <td>${escapeHtml(String(event.endpoint || "-"))}</td>
+        <td class="monitoring-query">${truncateText(event.query)}</td>
+        <td>${Number(event.prompt_tokens || 0)}</td>
+        <td>${Number(event.completion_tokens || 0)}</td>
+        <td>${Number(event.total_tokens || 0)}</td>
+        <td>${formatUsd(event.estimated_cost_usd || 0)}</td>
+      </tr>`).join("")
+    : `<tr><td colspan="7">No requests yet.</td></tr>`;
+
+  setHtml("monitoringRows", rows);
+  el("monitoringMeta").textContent =
+    `Pricing: input ${formatUsd(Number(pricing.input_price_per_1m || 0))}/1M tokens, output ${formatUsd(Number(pricing.output_price_per_1m || 0))}/1M tokens.`;
+}
+
+async function refreshMonitoringView() {
+  try {
+    const res = await fetch("/api/monitoring/recent?limit=20");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load monitoring view");
+    renderMonitoringView(data);
+  } catch (err) {
+    setHtml("monitoringSummary", `<div class="monitoring-chip"><div>Error</div><strong>${escapeHtml(err.message)}</strong></div>`);
+  }
+}
+
+function startMonitoringPolling() {
+  if (state.monitoringPoller) return;
+  refreshMonitoringView();
+  state.monitoringPoller = setInterval(refreshMonitoringView, 10000);
+}
+
+function stopMonitoringPolling() {
+  if (!state.monitoringPoller) return;
+  clearInterval(state.monitoringPoller);
+  state.monitoringPoller = null;
+}
 function escapeHtml(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")

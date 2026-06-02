@@ -6,10 +6,13 @@ import time
 from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
+from werkzeug.exceptions import HTTPException
 
 from src.config import get_settings
 from src.logging_utils import configure_logging
 from src.monitoring import (
+    estimate_openai_cost_usd,
+    get_recent_monitoring_events,
     init_monitoring,
     metrics_content_type,
     metrics_payload,
@@ -25,9 +28,8 @@ logger = logging.getLogger(__name__)
 if settings.start_prometheus_http_server:
     init_monitoring(settings.prometheus_port)
 
-requires_openai_api_key = settings.llm_provider == "openai" or settings.embedding_provider == "openai"
-if requires_openai_api_key and not settings.openai_api_key:
-    raise RuntimeError("OPENAI_API_KEY is required when using OpenAI provider")
+if not settings.openai_api_key:
+    raise RuntimeError("OPENAI_API_KEY is required")
 
 train_df, test_df, _text_col, _label_col, vectorstore, llm = load_app_resources(settings)
 
@@ -70,12 +72,39 @@ def parse_question_count(raw_value: Any) -> int:
     return max(1, min(10, count))
 
 
-def build_metrics(elapsed_ms: int, token_usage: dict, retrieved_docs: int) -> dict[str, int]:
+def _estimate_cost(token_usage: dict) -> float:
+    return estimate_openai_cost_usd(
+        token_usage=token_usage,
+        input_price_per_1m=settings.openai_input_price_per_1m,
+        output_price_per_1m=settings.openai_output_price_per_1m,
+    )
+
+
+def build_metrics(elapsed_ms: int, token_usage: dict, retrieved_docs: int) -> dict[str, Any]:
+    prompt_tokens = int(token_usage.get("prompt_tokens", 0))
+    completion_tokens = int(token_usage.get("completion_tokens", 0))
+    total_tokens = int(token_usage.get("total_tokens", 0))
     return {
         "response_time_ms": elapsed_ms,
-        "total_tokens": int(token_usage.get("total_tokens", 0)),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
         "retrieved_docs": retrieved_docs,
+        "estimated_cost_usd": round(_estimate_cost(token_usage), 8),
     }
+
+
+def _observe_api_usage(endpoint: str, query_text: str, elapsed_ms: int, retrieved_docs: int, token_usage: dict) -> None:
+    observe_query(
+        response_time_ms=elapsed_ms,
+        retrieved_docs=retrieved_docs,
+        token_usage=token_usage,
+        query_text=query_text,
+        endpoint=endpoint,
+        model=settings.llm_model,
+        input_price_per_1m=settings.openai_input_price_per_1m,
+        output_price_per_1m=settings.openai_output_price_per_1m,
+    )
 
 
 def _log_api_outcome(
@@ -91,10 +120,15 @@ def _log_api_outcome(
             "endpoint": endpoint,
             "elapsed_ms": elapsed_ms,
             "retrieved_docs": retrieved_docs,
+            "prompt_tokens": int(token_usage.get("prompt_tokens", 0)),
+            "completion_tokens": int(token_usage.get("completion_tokens", 0)),
             "total_tokens": int(token_usage.get("total_tokens", 0)),
+            "estimated_cost_usd": round(_estimate_cost(token_usage), 8),
             "blocked": blocked,
         },
     )
+
+
 
 
 @app.get("/")
@@ -108,15 +142,31 @@ def home():
         default_top_k=settings.top_k,
         default_mock_minutes=settings.mock_test_default_minutes,
     )
-
-
 @app.get("/api/health")
 def health() -> tuple[dict, int]:
     return {"status": "ok"}, 200
 
+
+
 @app.get("/metrics")
 def metrics() -> Response:
     return Response(metrics_payload(), mimetype=metrics_content_type())
+
+
+@app.get("/api/monitoring/recent")
+def monitoring_recent() -> Response:
+    raw_limit = request.args.get("limit", "20")
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 20
+
+    payload = get_recent_monitoring_events(limit=limit)
+    payload["pricing"] = {
+        "input_price_per_1m": settings.openai_input_price_per_1m,
+        "output_price_per_1m": settings.openai_output_price_per_1m,
+    }
+    return jsonify(payload)
 
 
 @app.post("/api/assistant")
@@ -134,11 +184,7 @@ def assistant_answer():
     result = llm.answer(query, contexts)
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
-    observe_query(
-        response_time_ms=elapsed_ms,
-        retrieved_docs=len(contexts),
-        token_usage=result["token_usage"],
-    )
+    _observe_api_usage("assistant", query, elapsed_ms, len(contexts), result["token_usage"])
     _log_api_outcome(
         "assistant",
         elapsed_ms,
@@ -177,11 +223,7 @@ def practice_question():
     result = llm.generate_practice_question(topic, contexts, difficulty)
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
-    observe_query(
-        response_time_ms=elapsed_ms,
-        retrieved_docs=len(contexts),
-        token_usage=result["token_usage"],
-    )
+    _observe_api_usage("practice-question", topic, elapsed_ms, len(contexts), result["token_usage"])
     _log_api_outcome(
         "practice-question",
         elapsed_ms,
@@ -223,11 +265,7 @@ def evaluate_answer():
     )
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
-    observe_query(
-        response_time_ms=elapsed_ms,
-        retrieved_docs=len(contexts),
-        token_usage=result["token_usage"],
-    )
+    _observe_api_usage("evaluate", question, elapsed_ms, len(contexts), result["token_usage"])
     _log_api_outcome(
         "evaluate",
         elapsed_ms,
@@ -276,11 +314,7 @@ def mock_generate():
     )
     elapsed_ms = int((time.perf_counter() - start) * 1000)
 
-    observe_query(
-        response_time_ms=elapsed_ms,
-        retrieved_docs=len(contexts),
-        token_usage=result["token_usage"],
-    )
+    _observe_api_usage("mock-generate", topic, elapsed_ms, len(contexts), result["token_usage"])
     _log_api_outcome(
         "mock-generate",
         elapsed_ms,
@@ -332,11 +366,7 @@ def mock_evaluate():
         elapsed_ms = int((time.perf_counter() - start) * 1000)
         total_eval_ms += elapsed_ms
 
-        observe_query(
-            response_time_ms=elapsed_ms,
-            retrieved_docs=len(contexts),
-            token_usage=result["token_usage"],
-        )
+        _observe_api_usage("mock-evaluate-item", q, elapsed_ms, len(contexts), result["token_usage"])
 
         report = result["evaluation"]
         score = int(report.get("overall_score", 0))
@@ -373,20 +403,26 @@ def mock_evaluate():
     )
 
 
+def _user_facing_api_error(err: Exception) -> tuple[dict, int]:
+    message = str(err).lower()
+    if "api key" in message or "authentication" in message:
+        return {"error": "OpenAI authentication failed. Check OPENAI_API_KEY."}, 502
+    return {"error": "Internal server error."}, 500
+
+
 @app.errorhandler(Exception)
 def handle_exception(err: Exception):
+    if isinstance(err, HTTPException):
+        return err
+
     logger.exception("Unhandled application error", exc_info=err)
     if request.path.startswith("/api/"):
-        return jsonify({"error": "Internal server error."}), 500
+        payload, status_code = _user_facing_api_error(err)
+        return jsonify(payload), status_code
     return "Internal server error.", 500
 
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8501"))
     app.run(host="0.0.0.0", port=port, debug=False)
-
-
-
-
-
 

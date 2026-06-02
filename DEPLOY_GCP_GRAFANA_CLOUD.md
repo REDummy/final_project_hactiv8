@@ -6,8 +6,8 @@ This guide is prefilled for your setup:
 - VM name: `final-project-hactiv8`
 - Zone: `us-central1-a`
 - Region: `us-central1`
-- LLM target: Claude Haiku on Vertex AI (`claude-haiku-4-5`)
-- Embedding target: Vertex AI embeddings (`text-embedding-005`)
+- LLM target: OpenAI (`LLM_MODEL`)
+- Embedding target: OpenAI embeddings (`OPENAI_EMBEDDING_MODEL`)
 
 Architecture:
 - App on Cloud Run (no app VM)
@@ -29,8 +29,7 @@ Enable APIs:
 gcloud services enable \
   run.googleapis.com \
   artifactregistry.googleapis.com \
-  compute.googleapis.com \
-  aiplatform.googleapis.com
+  compute.googleapis.com
 ```
 
 ## 2) Build and push container
@@ -42,12 +41,12 @@ gcloud artifacts repositories create rag-repo \
   --repository-format=docker \
   --location=us-central1
 
-docker build -t us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repo/mitsubishi-rag:latest ./final_project
+docker build -t us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repo/mitsubishi-rag:latest .
 
 docker push us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repo/mitsubishi-rag:latest
 ```
 
-## 3) Deploy to Cloud Run with Vertex Claude + Vertex Embeddings
+## 3) Deploy to Cloud Run with OpenAI
 
 ```bash
 gcloud run deploy mitsubishi-rag \
@@ -55,7 +54,7 @@ gcloud run deploy mitsubishi-rag \
   --region us-central1 \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars APP_ENV=prod,APP_VERSION=1.0.0,LOG_LEVEL=INFO,START_PROMETHEUS_HTTP_SERVER=false,LLM_PROVIDER=vertex_claude,EMBEDDING_PROVIDER=vertex,LLM_MODEL=claude-haiku-4-5,VERTEX_PROJECT_ID=project-1b553d65-984a-4d5b-a4f,VERTEX_LOCATION=us-central1,VERTEX_EMBEDDING_MODEL=text-embedding-005
+  --set-env-vars APP_ENV=prod,APP_VERSION=1.0.0,LOG_LEVEL=INFO,START_PROMETHEUS_HTTP_SERVER=false,LLM_MODEL=gpt-4o-mini,OPENAI_EMBEDDING_MODEL=text-embedding-3-small,OPENAI_API_KEY=<your-openai-api-key>
 ```
 
 Get URL:
@@ -93,8 +92,8 @@ newgrp docker
 On VM:
 
 ```bash
-git clone <YOUR_REPO_URL>
-cd <YOUR_REPO_PATH>/final_project/deploy/gcp/alloy
+git clone https://github.com/REDummy/final_project_hactiv8
+cd https://github.com/REDummy/final_project_hactiv8/final_project/deploy/gcp/alloy
 ```
 
 Edit `config.alloy` and replace `YOUR_CLOUD_RUN_HOSTNAME` with hostname only (no `https://`).
@@ -128,16 +127,12 @@ histogram_quantile(0.95, sum(rate(rag_request_latency_seconds_bucket[5m])) by (l
 
 ## 7) Troubleshooting
 
-- If Cloud Run fails with Claude model:
-  - Confirm Anthropic Claude model is enabled for your Vertex AI project/region.
-  - Confirm model ID availability in `us-central1`.
-- If embedding calls fail:
-  - Confirm `text-embedding-005` is available in your project/region.
-  - Confirm service account has Vertex AI User permissions.
+- If Cloud Run fails with OpenAI auth/model errors:
+  - Confirm `OPENAI_API_KEY` is valid.
+  - Confirm `LLM_MODEL` and `OPENAI_EMBEDDING_MODEL` are valid for your account.
 - If no metrics in Grafana Cloud:
   - Check Alloy logs for auth/remote_write issues.
   - Check `.env` values.
 - If no scrape:
   - Confirm `/metrics` is publicly reachable.
   - Ensure hostname in Alloy has no scheme/path.
-

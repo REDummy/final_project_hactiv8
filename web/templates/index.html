@@ -150,7 +150,27 @@
 
         <section id="monitoringNote" class="monitoring-note">
           <h3>Monitoring</h3>
-          <p>Prometheus metrics endpoint is exposed on <code>:8000/metrics</code>. Use Grafana to visualize dashboards.</p>
+          <p>Live view of recent requests with token usage and estimated OpenAI cost. Prometheus metrics remain available on <code>/metrics</code> and <code>:8000/metrics</code> when enabled.</p>
+          <div id="monitoringSummary" class="monitoring-summary"></div>
+          <div class="monitoring-table-wrap">
+            <table class="monitoring-table">
+              <thead>
+                <tr>
+                  <th>Time (UTC)</th>
+                  <th>Endpoint</th>
+                  <th>Query</th>
+                  <th>Input Tokens</th>
+                  <th>Output Tokens</th>
+                  <th>Total Tokens</th>
+                  <th>Cost (USD)</th>
+                </tr>
+              </thead>
+              <tbody id="monitoringRows">
+                <tr><td colspan="7">No requests yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p id="monitoringMeta" class="hint"></p>
         </section>
       </section>
     </section>
@@ -159,5 +179,4 @@
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
-
 

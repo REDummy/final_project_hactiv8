@@ -9,17 +9,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
 
-    llm_model: str = Field(default="claude-haiku-4-5", alias="LLM_MODEL")
+    llm_model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
+    llm_fallback_model: str = Field(default="", alias="LLM_FALLBACK_MODEL")
     llm_timeout_seconds: int = Field(default=30, alias="LLM_TIMEOUT_SECONDS", ge=5, le=180)
     llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES", ge=0, le=6)
     llm_max_output_tokens: int = Field(default=700, alias="LLM_MAX_OUTPUT_TOKENS", ge=64, le=4000)
 
-    llm_provider: str = Field(default="vertex_claude", alias="LLM_PROVIDER")
-    embedding_provider: str = Field(default="vertex", alias="EMBEDDING_PROVIDER")
-
-    vertex_project_id: str = Field(default="", alias="VERTEX_PROJECT_ID")
-    vertex_location: str = Field(default="us-central1", alias="VERTEX_LOCATION")
-    vertex_embedding_model: str = Field(default="text-embedding-005", alias="VERTEX_EMBEDDING_MODEL")
+    openai_embedding_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL")
+    openai_input_price_per_1m: float = Field(default=0.15, alias="OPENAI_INPUT_PRICE_PER_1M", ge=0)
+    openai_output_price_per_1m: float = Field(default=0.60, alias="OPENAI_OUTPUT_PRICE_PER_1M", ge=0)
 
     glossary_data_path: str = Field(default="data/glossary_en.jsonl", alias="GLOSSARY_DATA_PATH")
     guides_data_path: str = Field(default="data/guides_en.jsonl", alias="GUIDES_DATA_PATH")

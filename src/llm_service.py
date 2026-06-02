@@ -7,11 +7,6 @@ from typing import Any
 
 from langchain_openai import ChatOpenAI
 
-try:
-    from langchain_google_vertexai import ChatVertexAI
-except ImportError:  # pragma: no cover - optional dependency
-    ChatVertexAI = None
-
 
 logger = logging.getLogger(__name__)
 
@@ -58,48 +53,43 @@ class LlmService:
         timeout_seconds: int,
         max_retries: int,
         max_output_tokens: int,
+        fallback_model: str = "",
         enable_input_guard: bool = True,
         blocked_words: list[str] | None = None,
         injection_patterns: list[str] | None = None,
         max_input_chars: int = 3000,
-        llm_provider: str = "openai",
-        vertex_project_id: str = "",
-        vertex_location: str = "us-central1",
     ):
-        provider = (llm_provider or "openai").strip().lower()
-        if provider == "vertex_claude":
-            if ChatVertexAI is None:
-                raise RuntimeError(
-                    "langchain-google-vertexai is required for LLM_PROVIDER=vertex_claude"
-                )
-            self.client = ChatVertexAI(
-                model=model,
-                project=vertex_project_id or None,
-                location=vertex_location,
-                temperature=0,
-                max_retries=max_retries,
-                max_output_tokens=max_output_tokens,
-            )
-        else:
-            self.client = ChatOpenAI(
+        self.model_chain: list[str] = []
+
+        primary_model = (model or "").strip()
+        fallback = (fallback_model or "").strip()
+        if primary_model:
+            self.model_chain.append(primary_model)
+        if fallback and fallback != primary_model:
+            self.model_chain.append(fallback)
+
+        self.clients = [
+            ChatOpenAI(
                 api_key=api_key,
-                model=model,
+                model=model_name,
                 temperature=0,
                 timeout=timeout_seconds,
                 max_retries=max_retries,
                 max_tokens=max_output_tokens,
             )
+            for model_name in self.model_chain
+        ]
 
         self.enable_input_guard = enable_input_guard
         self.max_input_chars = max_input_chars
         self.blocked_words = [w.lower() for w in (blocked_words or DEFAULT_BLOCKED_WORDS) if w and w.strip()]
         pattern_list = injection_patterns or DEFAULT_INJECTION_PATTERNS
         self.injection_regexes = [re.compile(p, re.IGNORECASE) for p in pattern_list if p.strip()]
+
         logger.info(
             "LLM service initialized",
             extra={
-                "provider": provider,
-                "model": model,
+                "model_chain": self.model_chain,
                 "enable_input_guard": enable_input_guard,
                 "blocked_words_count": len(self.blocked_words),
                 "injection_patterns_count": len(self.injection_regexes),
@@ -170,6 +160,36 @@ class LlmService:
 
         return None
 
+    def _invoke(self, prompt: str):
+        last_error: Exception | None = None
+
+        for idx, client in enumerate(self.clients):
+            model_name = self.model_chain[idx]
+            try:
+                if idx > 0:
+                    logger.warning(
+                        "Model failed; trying fallback",
+                        extra={
+                            "failed_model": self.model_chain[idx - 1],
+                            "fallback_model": model_name,
+                        },
+                    )
+                return client.invoke(prompt)
+            except Exception as err:  # noqa: BLE001
+                last_error = err
+                logger.warning(
+                    "Model invocation failed",
+                    extra={
+                        "model": model_name,
+                        "attempt_index": idx + 1,
+                        "error": str(err),
+                    },
+                )
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("No LLM client configured")
+
     def answer(self, query: str, contexts: list[str]) -> dict:
         reason = self._validate_input(query, "Question")
         if reason:
@@ -183,7 +203,7 @@ class LlmService:
             "Final answer:"
         )
 
-        response = self.client.invoke(prompt)
+        response = self._invoke(prompt)
         token_usage = self._token_usage(response)
         logger.debug("Assistant answer generated", extra={"contexts": len(contexts), "total_tokens": token_usage.get("total_tokens", 0)})
         return {"answer": response.content, "token_usage": token_usage, "blocked": False}
@@ -212,7 +232,7 @@ class LlmService:
             '{"question":"...","expected_focus":["...","..."],"difficulty":"..."}'
         )
 
-        response = self.client.invoke(prompt)
+        response = self._invoke(prompt)
         content = str(response.content).strip()
         parsed = {"question": "", "expected_focus": [], "difficulty": difficulty}
 
@@ -262,7 +282,7 @@ class LlmService:
             '{"questions":["q1","q2","q3","q4","q5"],"difficulty":"..."}'
         )
 
-        response = self.client.invoke(prompt)
+        response = self._invoke(prompt)
         content = str(response.content).strip()
 
         questions: list[str] = []
@@ -337,7 +357,7 @@ class LlmService:
             f"Retrieved context:\n{context_block}"
         )
 
-        response = self.client.invoke(prompt)
+        response = self._invoke(prompt)
         content = str(response.content).strip()
 
         default_result = {

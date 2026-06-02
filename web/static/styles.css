@@ -247,6 +247,7 @@ body.is-mobile .top-tabs {
   .sidebar { position: static; }
   .tabs { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .monitoring-summary { grid-template-columns: 1fr 1fr; }
   .page-header h1 { font-size: 1.4rem; }
   .view-switch { flex-wrap: wrap; }
 }
@@ -322,4 +323,54 @@ body.is-mobile .top-tabs {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.monitoring-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.monitoring-chip {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--surface-alt);
+}
+
+.monitoring-chip strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1rem;
+}
+
+.monitoring-table-wrap {
+  overflow-x: auto;
+}
+
+.monitoring-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  font-size: 0.9rem;
+}
+
+.monitoring-table th,
+.monitoring-table td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.monitoring-table th {
+  background: var(--surface-alt);
+  text-align: left;
+  font-weight: 600;
+}
+
+.monitoring-query {
+  max-width: 360px;
+  white-space: normal;
+  word-break: break-word;
 }
