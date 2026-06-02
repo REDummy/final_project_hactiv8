@@ -18,7 +18,8 @@ const state = {
     timerId: null,
     submitted: false,
   },
-  monitoringPoller: null
+  monitoringPoller: null,
+  monitoringLoading: false
 };
 
 const el = (id) => document.getElementById(id);
@@ -35,6 +36,13 @@ function setHtml(id, html) {
 
 function loadingMarkup(text = "Loading...") {
   return `<div class="loading-inline"><span class="spinner"></span><span>${text}</span></div>`;
+}
+
+function metricChips(items) {
+  const chips = items
+    .map((item) => `<span class="metric-chip"><strong>${escapeHtml(String(item.label))}</strong> ${escapeHtml(String(item.value))}</span>`)
+    .join("");
+  return `<div class="metric-row">${chips}</div>`;
 }
 
 function setButtonLoading(buttonId, isLoading, loadingText = "Loading...") {
@@ -168,6 +176,11 @@ function initTopK() {
 }
 
 function initAssistant() {
+  el("assistantRefreshBtn").addEventListener("click", () => {
+    el("assistantQuery").value = "";
+    setHtml("assistantResult", "");
+  });
+
   el("randomPromptBtn").addEventListener("click", () => {
     const idx = Math.floor(Math.random() * quickPrompts.length);
     el("assistantQuery").value = quickPrompts[idx];
@@ -185,11 +198,16 @@ function initAssistant() {
       const contexts = data.contexts
         .map((c, i) => `<details><summary>Doc ${i + 1}</summary><p>${escapeHtml(c.content)}</p></details>`)
         .join("");
+      const metricsHtml = metricChips([
+        { label: "Response Time", value: `${data.metrics.response_time_ms} ms` },
+        { label: "Total Tokens", value: data.metrics.total_tokens },
+        { label: "Retrieved Docs", value: data.metrics.retrieved_docs }
+      ]);
       setHtml(
         "assistantResult",
-        `<p><strong>${data.blocked ? "Blocked" : "Answer generated"}</strong></p>
-         <p>${escapeHtml(data.answer)}</p>
-         <p><strong>Response Time:</strong> ${data.metrics.response_time_ms} ms | <strong>Total Tokens:</strong> ${data.metrics.total_tokens} | <strong>Retrieved Docs:</strong> ${data.metrics.retrieved_docs}</p>
+        `<p class="result-title"><strong>${data.blocked ? "Blocked" : "Answer generated"}</strong></p>
+         ${metricsHtml}
+         <p class="result-body">${escapeHtml(data.answer)}</p>
          <div>${contexts}</div>`
       );
     } catch (err) {
@@ -201,6 +219,13 @@ function initAssistant() {
 }
 
 function initTrainee() {
+  el("traineeRefreshBtn").addEventListener("click", () => {
+    el("practiceQuestion").value = "";
+    el("traineeAnswer").value = "";
+    el("expectedFocus").textContent = "";
+    setHtml("evaluationResult", "");
+  });
+
   el("generatePracticeBtn").addEventListener("click", async () => {
     setButtonLoading("generatePracticeBtn", true, "Generating...");
     setHtml("evaluationResult", loadingMarkup("Generating practice question..."));
@@ -243,11 +268,19 @@ function initTrainee() {
       const gaps = (report.gaps || []).map((x) => `<li>${escapeHtml(x)}</li>`).join("");
       const tips = (report.improvement_tips || []).map((x) => `<li>${escapeHtml(x)}</li>`).join("");
 
+      const scoreMetricsHtml = metricChips([
+        { label: "Overall", value: `${report.overall_score}/100 (${data.quality_band})` },
+        { label: "Accuracy", value: `${m.accuracy || 0}/100` },
+        { label: "Completeness", value: `${m.completeness || 0}/100` },
+        { label: "SOP", value: `${m.sop_alignment || 0}/100` },
+        { label: "Clarity", value: `${m.clarity || 0}/100` },
+        { label: "Actionability", value: `${m.actionability || 0}/100` },
+        { label: "Evaluation Time", value: `${data.metrics.response_time_ms} ms` }
+      ]);
+
       setHtml(
         "evaluationResult",
-        `<p><strong>Overall Score:</strong> ${report.overall_score}/100 (${data.quality_band})</p>
-         <p><strong>Accuracy:</strong> ${m.accuracy || 0}/100 | <strong>Completeness:</strong> ${m.completeness || 0}/100 | <strong>SOP Alignment:</strong> ${m.sop_alignment || 0}/100 | <strong>Clarity:</strong> ${m.clarity || 0}/100 | <strong>Actionability:</strong> ${m.actionability || 0}/100</p>
-         <p><strong>Evaluation Time:</strong> ${data.metrics.response_time_ms} ms</p>
+        `${scoreMetricsHtml}
          <p><strong>Strengths</strong></p><ul>${strengths}</ul>
          <p><strong>Gaps</strong></p><ul>${gaps}</ul>
          <p><strong>Improvement Tips</strong></p><ul>${tips}</ul>
@@ -279,8 +312,17 @@ function closeMockResultModal() {
 
 function initMockModal() {
   const closeBtn = el("mockModalCloseBtn");
+  const resetBtn = el("mockModalResetBtn");
   const backdrop = el("mockModalBackdrop");
+
   if (closeBtn) closeBtn.addEventListener("click", closeMockResultModal);
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (!resetMockAnswers(true)) return;
+      closeMockResultModal();
+      setHtml("mockResult", "<p>Mock test reset. You can start again from question 1.</p>");
+    });
+  }
   if (backdrop) backdrop.addEventListener("click", closeMockResultModal);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMockResultModal();
@@ -316,6 +358,21 @@ function startMockTimer(minutes) {
   state.mock.deadline = Date.now() + minutes * 60 * 1000;
   state.mock.timerId = setInterval(updateMockTimer, 1000);
   updateMockTimer();
+}
+
+function resetMockAnswers(restartTimer = false) {
+  if (!state.mock.questions.length) return false;
+
+  state.mock.answers = new Array(state.mock.questions.length).fill("");
+  state.mock.index = 0;
+  state.mock.submitted = false;
+  renderMockQuestion();
+
+  if (restartTimer) {
+    startMockTimer(Number(el("mockMinutes").value || 15));
+  }
+
+  return true;
 }
 
 async function submitMockTest(auto = false) {
@@ -393,6 +450,13 @@ function initMock() {
     }
   });
 
+  el("mockRefreshBtn").addEventListener("click", () => {
+    if (!state.mock.questions.length) return;
+    state.mock.answers[state.mock.index] = "";
+    el("mockAnswer").value = "";
+    setHtml("mockResult", "<p>Current mock answer input refreshed.</p>");
+  });
+
   el("mockPrevBtn").addEventListener("click", () => {
     state.mock.answers[state.mock.index] = el("mockAnswer").value;
     state.mock.index = Math.max(0, state.mock.index - 1);
@@ -403,6 +467,11 @@ function initMock() {
     state.mock.answers[state.mock.index] = el("mockAnswer").value;
     state.mock.index = Math.min(state.mock.questions.length - 1, state.mock.index + 1);
     renderMockQuestion();
+  });
+
+  el("mockAnswer").addEventListener("input", () => {
+    if (!state.mock.questions.length) return;
+    state.mock.answers[state.mock.index] = el("mockAnswer").value;
   });
 
   el("mockSubmitBtn").addEventListener("click", () => submitMockTest(false));
@@ -449,7 +518,13 @@ function renderMonitoringView(data) {
     `Pricing: input ${formatUsd(Number(pricing.input_price_per_1m || 0))}/1M tokens, output ${formatUsd(Number(pricing.output_price_per_1m || 0))}/1M tokens.`;
 }
 
-async function refreshMonitoringView() {
+async function refreshMonitoringView(manual = false) {
+  if (state.monitoringLoading) return;
+  state.monitoringLoading = true;
+  if (manual) {
+    setButtonLoading("refreshMonitoringBtn", true, "Refreshing...");
+  }
+
   try {
     const res = await fetch("/api/monitoring/recent?limit=20");
     const data = await res.json();
@@ -457,13 +532,35 @@ async function refreshMonitoringView() {
     renderMonitoringView(data);
   } catch (err) {
     setHtml("monitoringSummary", `<div class="monitoring-chip"><div>Error</div><strong>${escapeHtml(err.message)}</strong></div>`);
+    setHtml("monitoringRows", `<tr><td colspan="7">${escapeHtml(err.message)}</td></tr>`);
+  } finally {
+    state.monitoringLoading = false;
+    if (manual) {
+      setButtonLoading("refreshMonitoringBtn", false);
+    }
   }
+}
+
+function initResultA11y() {
+  ["assistantResult", "evaluationResult", "mockResult", "monitoringMeta"].forEach((id) => {
+    const node = el(id);
+    if (!node) return;
+    node.setAttribute("aria-live", "polite");
+  });
+}
+
+function initMonitoringControls() {
+  const refreshBtn = el("refreshMonitoringBtn");
+  if (!refreshBtn) return;
+  refreshBtn.addEventListener("click", () => {
+    refreshMonitoringView(true);
+  });
 }
 
 function startMonitoringPolling() {
   if (state.monitoringPoller) return;
   refreshMonitoringView();
-  state.monitoringPoller = setInterval(refreshMonitoringView, 10000);
+  state.monitoringPoller = setInterval(() => refreshMonitoringView(), 10000);
 }
 
 function stopMonitoringPolling() {
@@ -489,3 +586,28 @@ initAssistant();
 initTrainee();
 initMockModal();
 initMock();
+initResultA11y();
+initMonitoringControls();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

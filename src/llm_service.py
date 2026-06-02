@@ -26,6 +26,8 @@ DEFAULT_INJECTION_PATTERNS = [
     r"developer\s+message",
     r"system\s+prompt",
     r"reveal\s+.*prompt",
+    r"(show|reveal|print|leak|expose|share)\s+.*(api[\s_-]?key|secret|token|credential)",
+    r"(api[\s_-]?key|secret|token|credential)\s+.*(show|reveal|print|leak|expose|share)",
     r"bypass\s+(security|safeguards|guardrails)",
     r"jailbreak",
     r"do\s+anything\s+now",
@@ -505,6 +507,7 @@ class LlmService:
 
         token_usage = self._token_usage(response)
         return {"evaluation": parsed, "token_usage": token_usage, "blocked": False}
+
 
 
 

@@ -1,24 +1,24 @@
 prometheus.scrape "cloud_run_app" {
   targets = [
     {
-      __address__ = "mitsubishi-rag-3446gbwdza-uc.a.run.app",
+      __address__ = sys.env("CLOUD_RUN_HOSTNAME"),
     },
   ]
 
-  scheme       = "https"
-  metrics_path = "/metrics"
+  scheme          = "https"
+  metrics_path    = "/metrics"
   scrape_interval = "15s"
-  forward_to = [prometheus.remote_write.metrics_hosted_prometheus.receiver]
+  forward_to      = [prometheus.remote_write.metrics_hosted_prometheus.receiver]
 }
 
 prometheus.remote_write "metrics_hosted_prometheus" {
-   endpoint {
-      name = "hosted-prometheus"
-      url  = "https://prometheus-prod-52-prod-ap-southeast-2.grafana.net/api/prom/push"
-  
-      basic_auth {
-        username = "3264744"
-        password = "glc_eyJvIjoiMTc5MTM5NSIsIm4iOiJzdGFjay0xNjcwMjYwLWFsbG95LWZpbmFsX3BybyIsImsiOiIyODk2M0U2a2ZoSXgxZjJuMUpNTkZGN3IiLCJtIjp7InIiOiJwcm9kLWFwLXNvdXRoZWFzdC0yIn19"
-      }
-   }
+  endpoint {
+    name = "hosted-prometheus"
+    url  = sys.env("GRAFANA_CLOUD_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROM_USER")
+      password = sys.env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
 }

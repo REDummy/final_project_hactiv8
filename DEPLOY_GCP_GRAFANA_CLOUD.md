@@ -109,15 +109,21 @@ git clone https://github.com/REDummy/final_project_hactiv8
 cd final_project_hactiv8/deploy/gcp/alloy
 ```
 
-Edit `config.alloy` and replace `YOUR_CLOUD_RUN_HOSTNAME` with hostname only (no `https://`).
+`config.alloy` now reads all sensitive values from environment variables.
 
 Create `.env` in this folder:
 
 ```.env
+CLOUD_RUN_HOSTNAME=<your-cloud-run-hostname-only>
 GRAFANA_CLOUD_PROM_URL=https://<your-grafana-cloud-prom-endpoint>/api/prom/push
 GRAFANA_CLOUD_PROM_USER=<your-prom-username>
 GRAFANA_CLOUD_API_KEY=<your-metrics-publisher-key>
 ```
+
+Notes:
+- `CLOUD_RUN_HOSTNAME` should be hostname only (no `https://`, no path).
+- Do not commit this `.env` file.
+- If you prefer GCP Secret Manager, inject these values as environment variables when running Alloy.
 
 Start Alloy (Debian package uses `docker-compose`):
 
@@ -176,5 +182,6 @@ PowerShell fallback if proxy variables interfere:
 $env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; python evaluation/run_eval.py --base-url https://mitsubishi-rag-697353833582.us-central1.run.app/
 $env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiStressUser --headless -u 20 -r 2 -t 3m --only-summary
 ```
+
 
 

@@ -4,14 +4,24 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mitsubishi Sales Training Knowledge Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/5/5a/Mitsubishi_logo.svg" />
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
   <main class="app-shell">
     <header class="page-header">
-      <h1>Mitsubishi Sales Training Knowledge Assistant</h1>
-      <p>RAG demo for SOP, coaching playbooks, and trainee scoring</p>
-      <p class="meta">Environment: {{ app_env }} | Version: {{ app_version }} | <span id="deviceBadge">Device: Web</span></p>
+      <div class="brand-row">
+        <img class="brand-logo" src="https://upload.wikimedia.org/wikipedia/commons/5/5a/Mitsubishi_logo.svg" alt="Mitsubishi logo" />
+        <div class="brand-copy">
+          <p class="brand-kicker">Training Assistant</p>
+          <h1>Mitsubishi Sales Knowledge Studio</h1>
+          <p>RAG workspace for SOP retrieval, coaching simulation, and trainee scoring</p>
+          <p class="meta">Environment: {{ app_env }} | Version: {{ app_version }} | <span id="deviceBadge">Device: Web</span></p>
+        </div>
+      </div>
     </header>
 
     <section class="view-switch" role="group" aria-label="View mode switch">
@@ -53,7 +63,10 @@
 
       <section class="content-main">
         <section id="assistant" class="tab-panel active">
-          <h2>Ask the Knowledge Base</h2>
+          <div class="assistant-head">
+            <h2>Ask the Knowledge Base</h2>
+            <button class="btn icon-btn" id="assistantRefreshBtn" type="button" aria-label="Refresh assistant" title="Refresh assistant">&#8635;</button>
+          </div>
           <div class="button-row">
             <button class="btn" id="randomPromptBtn">Random Prompt</button>
           </div>
@@ -64,7 +77,10 @@
         </section>
 
         <section id="trainee" class="tab-panel">
-          <h2>Trainee Practice and Scoring</h2>
+          <div class="assistant-head">
+            <h2>Trainee Practice and Scoring</h2>
+            <button class="btn icon-btn" id="traineeRefreshBtn" type="button" aria-label="Refresh trainee form" title="Refresh trainee form">&#8635;</button>
+          </div>
           <div class="grid-2">
             <div>
               <label for="practiceTopic">Practice topic</label>
@@ -92,7 +108,10 @@
         </section>
 
         <section id="mock" class="tab-panel">
-          <h2>Mock Test</h2>
+          <div class="assistant-head">
+            <h2>Mock Test</h2>
+            <button class="btn icon-btn" id="mockRefreshBtn" type="button" aria-label="Refresh mock input" title="Refresh mock input">&#8635;</button>
+          </div>
           <p class="hint">One question at a time with timer. Evaluation is generated at the end.</p>
           <div class="grid-3">
             <div>
@@ -129,9 +148,9 @@
             <label for="mockAnswer">Your answer</label>
             <textarea id="mockAnswer" rows="6"></textarea>
             <div class="button-row">
-              <button id="mockPrevBtn" class="btn">Previous</button>
-              <button id="mockNextBtn" class="btn">Next</button>
-              <button id="mockSubmitBtn" class="btn primary">Submit Test</button>
+              <button id="mockPrevBtn" class="btn" type="button">Previous</button>
+              <button id="mockNextBtn" class="btn" type="button">Next</button>
+              <button id="mockSubmitBtn" class="btn primary" type="button">Submit Test</button>
             </div>
           </div>
           <div id="mockResult" class="result"></div>
@@ -142,14 +161,17 @@
           <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="mockModalTitle">
             <div class="modal-header">
               <h3 id="mockModalTitle">Mock Test Result</h3>
-              <button id="mockModalCloseBtn" class="btn" type="button">Close</button>
+              <div class="button-row">
+                <button id="mockModalResetBtn" class="btn" type="button">Reset</button>
+                <button id="mockModalCloseBtn" class="btn" type="button">Close</button>
+              </div>
             </div>
             <div id="mockModalBody" class="modal-body"></div>
           </div>
         </section>
 
         <section id="monitoringNote" class="monitoring-note">
-          <h3>Monitoring</h3>
+          <div class="monitoring-head"><h3>Monitoring</h3><button id="refreshMonitoringBtn" class="btn" type="button">Refresh</button></div>
           <p>Live view of recent requests with token usage and estimated OpenAI cost. Prometheus metrics remain available on <code>/metrics</code> and <code>:8000/metrics</code> when enabled.</p>
           <div id="monitoringSummary" class="monitoring-summary"></div>
           <div class="monitoring-table-wrap">
@@ -179,4 +201,3 @@
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
-
