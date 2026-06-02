@@ -8,7 +8,7 @@ prometheus.scrape "cloud_run_app" {
   scheme       = "https"
   metrics_path = "/metrics"
   scrape_interval = "15s"
-forward_to      = [prometheus.remote_write.metrics_hosted_prometheus.receiver]
+  forward_to = [prometheus.remote_write.metrics_hosted_prometheus.receiver]
 }
 
 prometheus.remote_write "metrics_hosted_prometheus" {
