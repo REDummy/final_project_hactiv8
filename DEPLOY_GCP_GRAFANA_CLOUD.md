@@ -37,32 +37,23 @@ gcloud services enable \
 ```bash
 gcloud auth configure-docker us-central1-docker.pkg.dev
 
-gcloud artifacts repositories create rag-repo \
-  --repository-format=docker \
-  --location=us-central1
+gcloud artifacts repositories create rag-repos --repository-format=docker --location=us-central1
 
-docker build -t us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repo/mitsubishi-rag:latest .
+docker build -t us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repos/mitsubishi-rag:latest .
 
-docker push us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repo/mitsubishi-rag:latest
+docker push us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repos/mitsubishi-rag:latest
 ```
 
 ## 3) Deploy to Cloud Run with OpenAI
 
 ```bash
-gcloud run deploy mitsubishi-rag \
-  --image us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repo/mitsubishi-rag:latest \
-  --region us-central1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --set-env-vars APP_ENV=prod,APP_VERSION=1.0.0,LOG_LEVEL=INFO,START_PROMETHEUS_HTTP_SERVER=false,LLM_MODEL=gpt-4o-mini,OPENAI_EMBEDDING_MODEL=text-embedding-3-small,OPENAI_API_KEY=<your-openai-api-key>
+gcloud run deploy mitsubishi-rag --image us-central1-docker.pkg.dev/project-1b553d65-984a-4d5b-a4f/rag-repos/mitsubishi-rag:latest --region us-central1 --platform managed --allow-unauthenticated --set-env-vars APP_ENV=prod,APP_VERSION=1.0.0,LOG_LEVEL=INFO,START_PROMETHEUS_HTTP_SERVER=false,LLM_MODEL=gpt-4o-mini,OPENAI_EMBEDDING_MODEL=text-embedding-3-small,OPENAI_API_KEY=<api-key>
 ```
 
 Get URL:
 
 ```bash
-gcloud run services describe mitsubishi-rag \
-  --region us-central1 \
-  --format='value(status.url)'
+gcloud run services describe mitsubishi-rag --region us-central1 --format='value(status.url)'
 ```
 
 Validate:
