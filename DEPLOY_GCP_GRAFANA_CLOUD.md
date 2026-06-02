@@ -177,11 +177,14 @@ Run headless stress load test:
 locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiStressUser --headless -u 20 -r 2 -t 3m --only-summary
 ```
 
+Run headless normal load test (about 4 users for 5 minutes):
+```bash
+locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiUser --headless -u 4 -r 1 -t 5m --only-summary
+```
+
 PowerShell fallback if proxy variables interfere:
 ```powershell
 $env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; python evaluation/run_eval.py --base-url https://mitsubishi-rag-697353833582.us-central1.run.app/
 $env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiStressUser --headless -u 20 -r 2 -t 3m --only-summary
+$env:HTTPS_PROXY=''; $env:HTTP_PROXY=''; $env:ALL_PROXY=''; locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiUser --headless -u 4 -r 1 -t 5m --only-summary
 ```
-
-
-

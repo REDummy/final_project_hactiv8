@@ -5,6 +5,11 @@ Mitsubishi sales-training assistant with a web frontend (HTML/CSS/JS) and Flask 
 - Embeddings: Google embedding primary with OpenAI embedding fallback
 - Observability: Prometheus metrics + Grafana Cloud via Alloy
 
+## Live Links
+- Deployed App: `https://mitsubishi-rag-697353833582.us-central1.run.app/`
+- Monitoring Dashboard: `https://redummy.grafana.net/public-dashboards/adf96896cd51481e85157cc3eafd2c0e`
+- Pitch Deck (PowerPoint): `https://365bsi-my.sharepoint.com/:p:/g/personal/bsi80269_bsi_co_id/IQCxWEJCtxDmS4JgVjA5TYVeATKRiCAH79EONGP8hGV35Wg?e=6h2w2M`
+
 ## Run Locally
 1. Install dependencies:
    ```bash
@@ -68,6 +73,11 @@ locust -f loadtest/locustfile.py --host http://localhost:8501 RagApiStressUser
 Run stress load test headless to deployed Cloud Run URL:
 ```bash
 locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiStressUser --headless -u 20 -r 2 -t 3m --only-summary
+```
+
+Run normal load test headless to deployed Cloud Run URL (about 4 users for 5 minutes):
+```bash
+locust -f loadtest/locustfile.py --host https://mitsubishi-rag-697353833582.us-central1.run.app RagApiUser --headless -u 4 -r 1 -t 5m --only-summary
 ```
 
 Then open `http://localhost:8089` for the load-test UI (when not headless).
@@ -159,4 +169,5 @@ Safety:
 ## Developer Monitoring
 - In Developer Mode, the Monitoring section now shows recent queries, input/output tokens, and estimated OpenAI cost per request.
 - Cost estimation uses OPENAI_INPUT_PRICE_PER_1M and OPENAI_OUTPUT_PRICE_PER_1M.
+
 

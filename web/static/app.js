@@ -589,25 +589,3 @@ initMock();
 initResultA11y();
 initMonitoringControls();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

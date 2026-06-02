@@ -99,7 +99,7 @@ A: No, it augments trainers/managers by making knowledge access and evaluation f
 ### Technical and Monitoring
 
 **Q: What model and infra are used?**
-A: OpenAI chat model for generation/evaluation, FAISS for retrieval, Streamlit app UI, Prometheus/Grafana for observability.
+A: Configurable LLM routing (hybrid Google Gemini + OpenAI backup, or OpenAI-only), FAISS retrieval, Flask + web static UI, and Prometheus/Grafana observability.
 
 **Q: What metrics are monitored?**
 A: Request count, latency, prompt/completion/total tokens, retrieved docs per query, and last response time.
@@ -140,5 +140,3 @@ A: Role-based scoring rubrics, historical trainee progress tracking, scenario ba
 ## 5) Suggested 60-Second Pitch
 
 This project solves a real dealership pain point: inconsistent sales and SOP guidance across teams. We built a Mitsubishi-focused RAG assistant that retrieves grounded knowledge from curated training documents and gives practical guidance in Bahasa Indonesia. Beyond answering, it includes a trainee QnA scoring mode so managers can evaluate answers on accuracy, completeness, SOP alignment, clarity, and actionability. The result is faster onboarding, more consistent execution, and measurable coaching support, with Prometheus/Grafana monitoring for reliability and performance.
-
-

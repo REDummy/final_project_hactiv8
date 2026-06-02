@@ -36,7 +36,7 @@ A: Slugs are metadata identifiers, not business knowledge, so excluding them kee
 ## 4) Technical Architecture Q&A
 
 **Q: What is the architecture?**
-A: Streamlit UI + modular service layer (`config`, `data_loader`, `rag_pipeline`, `llm_service`) + Prometheus metrics + Grafana dashboard.
+A: Flask API + server-rendered web UI (`web/templates` + `web/static`) + modular service layer (`config`, `data_loader`, `rag_pipeline`, `llm_service`) + Prometheus metrics + Grafana dashboard.
 
 **Q: How is configuration managed?**
 A: Typed settings via `pydantic-settings` in one source of truth (`src/config.py`), loaded from environment.
@@ -116,8 +116,8 @@ A:
 **Q: Why RAG instead of plain LLM?**
 A: Grounded answers, lower hallucination risk, traceable context.
 
-**Q: Why Streamlit?**
-A: Fast internal tool delivery and demo iteration.
+**Q: Why Flask + vanilla web UI?**
+A: It keeps deployment simple, gives full control over API + UI behavior, and stays lightweight for this project scope.
 
 **Q: Why FAISS?**
 A: Lightweight, local, and sufficient for current dataset scale.

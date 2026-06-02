@@ -1,11 +1,12 @@
-﻿# Secrets and local runtime
+# Secrets and local runtime
 .env
+deploy/gcp/alloy/.env
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 
-# Streamlit artifacts
+# Optional local UI tooling artifacts
 .streamlit/
 
 # Local logs and temp outputs
