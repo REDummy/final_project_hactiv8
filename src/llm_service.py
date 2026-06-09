@@ -5,7 +5,16 @@ import logging
 import re
 from typing import Any
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+except ImportError:  # pragma: no cover - exercised only when optional dependency is missing
+    class ChatGoogleGenerativeAI:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError(
+                "langchain-google-genai is not installed. Install requirements.txt to use Google Gemini models."
+            )
+
+
 from langchain_openai import ChatOpenAI
 
 
@@ -26,6 +35,9 @@ DEFAULT_INJECTION_PATTERNS = [
     r"developer\s+message",
     r"system\s+prompt",
     r"reveal\s+.*prompt",
+    r"(repeat|print|show|reveal)\s+.*(system|developer|hidden|internal)\s+.*(prompt|instruction)s?",
+    r"(verbatim|word[\s-]?for[\s-]?word)\s+.*(system|developer|hidden|internal)\s+.*(prompt|instruction)s?",
+    r"(dump|extract|leak|expose|share)\s+.*(model\s+weights?|training\s+data|fine[\s-]?tuning\s+data|checkpoint)",
     r"(show|reveal|print|leak|expose|share)\s+.*(api[\s_-]?key|secret|token|credential)",
     r"(api[\s_-]?key|secret|token|credential)\s+.*(show|reveal|print|leak|expose|share)",
     r"bypass\s+(security|safeguards|guardrails)",
@@ -270,6 +282,25 @@ class LlmService:
 
         return None
 
+    def _validate_contexts(self, contexts: list[str], field_name: str = "Retrieved context") -> str | None:
+        if not self.enable_input_guard:
+            return None
+
+        for idx, raw_context in enumerate(contexts):
+            value = str(raw_context or "").strip()
+            if not value:
+                continue
+
+            for pattern in self.injection_regexes:
+                if pattern.search(value):
+                    logger.warning(
+                        "Context blocked by poisoning pattern",
+                        extra={"field_name": field_name, "doc_index": idx + 1},
+                    )
+                    return f"{field_name} document #{idx + 1} is flagged as potential data-poisoning content."
+
+        return None
+
     def _invoke(self, prompt: str):
         last_error: Exception | None = None
 
@@ -305,6 +336,8 @@ class LlmService:
 
     def answer(self, query: str, contexts: list[str]) -> dict:
         reason = self._validate_input(query, "Question")
+        if not reason:
+            reason = self._validate_contexts(contexts)
         if reason:
             return {"answer": f"Request blocked: {reason}", "token_usage": self._zero_usage(), "blocked": True}
 
@@ -324,6 +357,8 @@ class LlmService:
 
     def generate_practice_question(self, topic: str, contexts: list[str], difficulty: str) -> dict:
         reason = self._validate_input(topic, "Practice topic")
+        if not reason:
+            reason = self._validate_contexts(contexts)
         if reason:
             return {
                 "question": "",
@@ -372,6 +407,8 @@ class LlmService:
 
     def generate_practice_question_set(self, topic: str, contexts: list[str], difficulty: str, count: int = 5) -> dict:
         reason = self._validate_input(topic, "Mock-test topic")
+        if not reason:
+            reason = self._validate_contexts(contexts)
         if reason:
             return {
                 "questions": [],
@@ -422,6 +459,8 @@ class LlmService:
         reason = self._validate_input(question, "Evaluation question") or self._validate_input(
             trainee_answer, "Trainee answer"
         )
+        if not reason:
+            reason = self._validate_contexts(contexts)
         if reason:
             return {
                 "evaluation": {
@@ -507,11 +546,3 @@ class LlmService:
 
         token_usage = self._token_usage(response)
         return {"evaluation": parsed, "token_usage": token_usage, "blocked": False}
-
-
-
-
-
-
-
-

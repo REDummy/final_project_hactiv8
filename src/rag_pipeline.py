@@ -7,7 +7,16 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+try:
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+except ImportError:  # pragma: no cover - exercised only when optional dependency is missing
+    class GoogleGenerativeAIEmbeddings:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError(
+                "langchain-google-genai is not installed. Install requirements.txt to use Google embeddings."
+            )
+
+
 from langchain_openai import OpenAIEmbeddings
 
 
@@ -101,3 +110,4 @@ class RagIndexer:
         chunked_docs = self.chunker.split_documents(docs)
         logger.info("Building FAISS vectorstore", extra={"raw_docs": len(docs), "chunked_docs": len(chunked_docs)})
         return FAISS.from_documents(chunked_docs, self.embeddings)
+

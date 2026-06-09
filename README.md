@@ -37,6 +37,18 @@ Run unit/integration tests:
 pytest
 ```
 
+Run penetration tests:
+```bash
+pytest -m pentest -q
+```
+
+Run host-based penetration checks:
+```bash
+python evaluation/run_pentest_host.py --base-url http://localhost:8501 --verbose
+```
+
+See detailed guide: `PENETRATION_TESTING.md`
+
 Run API evaluation cases (default):
 ```bash
 python evaluation/run_eval.py --base-url http://localhost:8501
@@ -169,5 +181,6 @@ Safety:
 ## Developer Monitoring
 - In Developer Mode, the Monitoring section now shows recent queries, input/output tokens, and estimated OpenAI cost per request.
 - Cost estimation uses OPENAI_INPUT_PRICE_PER_1M and OPENAI_OUTPUT_PRICE_PER_1M.
+
 
 

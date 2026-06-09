@@ -111,7 +111,44 @@ A:
 3. branch-level score benchmarking
 4. stronger automated eval validation set
 
-## 10) Rapid Fire (Short Answers)
+## 10) Post-Thank-You Technical Deep Dive Q&A
+
+**Q: What is the request lifecycle in technical terms?**
+A: UI request -> Flask API -> query embedding -> FAISS top-k retrieval -> grounded prompt assembly -> LLM generation -> structured response + metrics emission.
+
+**Q: How do you validate retrieval quality, not just model fluency?**
+A: We review retrieval relevance samples, track low-relevance cases, and tune chunking/top-k by scenario so quality is measured from retrieval first.
+
+**Q: What keeps LLM cost and latency under control?**
+A: Output token caps, timeout/retry controls, provider routing, and monitoring of prompt/completion tokens per request.
+
+**Q: How do you make scoring output reliable for manager usage?**
+A: The evaluator returns structured JSON with metric breakdown, evidence context, strengths, gaps, and improvement tips so managers can audit decisions.
+
+**Q: How does this scale beyond one branch?**
+A: Keep API layer stateless, externalize or shard vector storage as data grows, add RBAC, and place async workers for heavy scoring workloads.
+
+## 11) Decision Rationale Q&A
+
+**Q: Why use RAG instead of a plain LLM chatbot?**
+A: Because SOP accuracy matters more than creativity; RAG keeps responses anchored to approved internal documents.
+
+**Q: Why choose Flask + server-rendered UI for this project?**
+A: It minimizes engineering overhead, speeds iteration, and is easier to deploy/maintain for a pilot-scale product.
+
+**Q: Why use hybrid LLM routing instead of one provider only?**
+A: Hybrid routing gives fallback resilience and flexibility to optimize latency, quality, and cost over time.
+
+**Q: Why deploy with Docker Compose first?**
+A: Compose gives reproducible environments and faster team onboarding before moving to more complex cloud orchestration.
+
+**Q: Why invest in Prometheus/Grafana this early?**
+A: Without observability, cost and quality drift is hard to detect; metrics are needed to run this as an operational system.
+
+**Q: Why keep managers in the process instead of full AI automation?**
+A: Coaching quality and edge-case judgment still require human review; AI accelerates preparation, managers own final accountability.
+
+## 12) Rapid Fire (Short Answers)
 
 **Q: Why RAG instead of plain LLM?**
 A: Grounded answers, lower hallucination risk, traceable context.

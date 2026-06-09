@@ -140,3 +140,71 @@ A: Role-based scoring rubrics, historical trainee progress tracking, scenario ba
 ## 5) Suggested 60-Second Pitch
 
 This project solves a real dealership pain point: inconsistent sales and SOP guidance across teams. We built a Mitsubishi-focused RAG assistant that retrieves grounded knowledge from curated training documents and gives practical guidance in Bahasa Indonesia. Beyond answering, it includes a trainee QnA scoring mode so managers can evaluate answers on accuracy, completeness, SOP alignment, clarity, and actionability. The result is faster onboarding, more consistent execution, and measurable coaching support, with Prometheus/Grafana monitoring for reliability and performance.
+
+## 6) Technical Deep Dive (After Thank You)
+
+Use this section when judges ask for engineering depth right after the closing slide.
+
+### End-to-End Flow (Talk Track)
+- User asks from UI -> Flask endpoint receives request.
+- Query is embedded and matched to top-k SOP chunks in FAISS.
+- Prompt is assembled with strict context-grounding instructions.
+- LLM router executes with timeout/retry/token caps.
+- Response + retrieved context + metrics are returned for transparency.
+
+### Technical Credibility Points
+1. Separation of concerns:
+   Retrieval, generation, scoring, and monitoring are modularized in separate services.
+2. Reliability controls:
+   Bounded output tokens, retries, and health checks reduce runtime instability.
+3. Observability discipline:
+   Latency, errors, token usage, and retrieval behavior are measured continuously.
+4. Production hardening path:
+   Auth/RBAC, rate limiting, managed secrets, and async jobs for heavier loads.
+
+### Optional 30-Second Deep-Tech Close
+"Under the hood, this is a retrieval-grounded architecture with explicit operational guardrails. We can trace what context was used, monitor performance and token cost per request, and incrementally harden it into multi-branch production with RBAC and scalability controls."
+
+## 7) Decision Rationale (Business and Technical)
+
+### Business Decisions and Why
+
+1. Focus on Mitsubishi-specific sales and SOP scenarios first:
+   This gives immediate operational relevance instead of a generic assistant that feels broad but weak during real customer conversations.
+2. Prioritize consistency and coaching, not automation-only:
+   The goal is to reduce answer variance across consultants and strengthen manager coaching loops, because capability improvement is the real business lever.
+3. Include trainee scoring as a core feature:
+   Answer quality can be measured and coached over time, turning training from subjective review into evidence-based development.
+4. Keep manager in the loop:
+   For high-stakes assessments and escalation scenarios, human oversight protects quality and trust while the model accelerates preparation.
+5. Frame value with ROI assumptions:
+   Conversion uplift, onboarding speed, and SOP error reduction translate technical outputs into language branch leadership can act on.
+
+### Technical Decisions and Why
+
+1. Use RAG instead of plain LLM responses:
+   Retrieval grounding reduces hallucination risk and makes outputs auditable against real SOP/training documents.
+2. Use curated JSONL knowledge sources:
+   Simple structured files keep ingestion maintainable for this project stage and easy to expand by domain owners.
+3. Use FAISS for vector retrieval:
+   It is lightweight, fast, local-first, and appropriate for current dataset size without adding heavy infrastructure overhead.
+4. Use Flask + server-rendered web UI:
+   This keeps architecture simple, speeds development, and reduces deployment complexity versus heavier frontend stacks.
+5. Use configurable LLM routing (hybrid/OpenAI-only):
+   Provider flexibility improves resilience, cost control options, and continuity during quota or latency shifts.
+6. Return structured JSON for scoring:
+   Machine-readable output enables consistent metric parsing, dashboarding, and future analytics workflows.
+7. Deploy with Docker Compose first:
+   Reproducible setup across environments is faster for demo and pilot rollout before full cloud platform hardening.
+8. Add Prometheus and Grafana observability:
+   Latency, token usage, error rate, and retrieval behavior must be visible to manage quality-performance-cost trade-offs.
+9. Centralize config with typed settings (pydantic-settings):
+   One source of truth lowers misconfiguration risk and makes environment promotion cleaner.
+10. Use practical security baseline now, harden progressively:
+    .env isolation, least-privilege env injection, and planned RBAC/rate-limiting provide a realistic path from prototype to production.
+
+### Deployment Path Decision (Pilot to Production)
+
+- Pilot phase: local or VM deployment via Docker Compose for speed and reproducibility.
+- Pre-production phase: add reverse proxy, HTTPS, centralized logs, and managed secret store.
+- Production phase: enforce auth/RBAC, rate limiting, backup strategy, and SLO-based monitoring gates.
