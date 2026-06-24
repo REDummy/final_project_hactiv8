@@ -6,9 +6,9 @@ Mitsubishi sales-training assistant with a web frontend (HTML/CSS/JS) and Flask 
 - Observability: Prometheus metrics + Grafana Cloud via Alloy
 
 ## Live Links
-- Deployed App: `https://mitsubishi-rag-697353833582.us-central1.run.app/`
-- Monitoring Dashboard: `https://redummy.grafana.net/public-dashboards/adf96896cd51481e85157cc3eafd2c0e`
-- Pitch Deck (PowerPoint): `https://365bsi-my.sharepoint.com/:p:/g/personal/bsi80269_bsi_co_id/IQCxWEJCtxDmS4JgVjA5TYVeATKRiCAH79EONGP8hGV35Wg?e=6h2w2M`
+- [Deployed App](https://mitsubishi-rag-697353833582.us-central1.run.app/)
+- [Monitoring Dashboard](https://redummy.grafana.net/public-dashboards/adf96896cd51481e85157cc3eafd2c0e)
+- [Pitch Deck (PowerPoint)](https://365bsi-my.sharepoint.com/:p:/g/personal/bsi80269_bsi_co_id/IQCxWEJCtxDmS4JgVjA5TYVeATKRiCAH79EONGP8hGV35Wg?e=6h2w2M)
 
 ## Run Locally
 1. Install dependencies:
